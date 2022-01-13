@@ -159,7 +159,7 @@ contract Bidify is ReentrancyGuard, Ownable, IERC165, ERC1155Holder {
         allowMarketplace,
         address(0),
         address(0),
-        block.timestamp + (timeInDays * (10 minutes)),
+        block.timestamp + (timeInDays * (1 days)),
         false,
         true
       );
@@ -176,7 +176,7 @@ contract Bidify is ReentrancyGuard, Ownable, IERC165, ERC1155Holder {
         allowMarketplace,
         address(0),
         address(0),
-        block.timestamp + (timeInDays * (10 minutes)),
+        block.timestamp + (timeInDays * (1 days)),
         false,
         false
       );
