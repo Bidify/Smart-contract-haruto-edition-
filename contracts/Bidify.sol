@@ -21,7 +21,11 @@ contract Bidify is ReentrancyGuard, Ownable, IERC165, ERC1155Holder {
   // Time to extend the auction by if a last minute bid appears
   uint256 constant EXTENSION_TIMER = 3 minutes;
 
-  mapping(address => uint256) private _balances;
+  // marketplace and referrer
+  address constant BIDIFY_PLATFORM = 0x3Ddf0eB83c26043fE5464E06D9E338D289cFFBc1;
+  address constant DAO = 0x63e9ceFD428D37430205c0ab8fa2a34A21F911Ac;
+
+  // mapping(address => uint256) private _balances;
 
   // Lack of payable on addresses due to usage of call
   struct Listing {
@@ -103,24 +107,26 @@ contract Bidify is ReentrancyGuard, Ownable, IERC165, ERC1155Holder {
 
   function universalTransfer(address currency, address dest, uint256 amount) internal {
     if (currency == address(0)) {
-      _balances[dest] = _balances[dest] + amount;
+      // _balances[dest] = _balances[dest] + amount;
+      (bool success,) = dest.call{value: amount}("");
+      require(success);
     } else {
       IERC20(currency).safeTransfer(dest, amount);
     }
   }
 
-  function balanceOf(address account) external view returns (uint256) {
-    return _balances[account];
-  }
+  // function balanceOf(address account) external view returns (uint256) {
+  //   return _balances[account];
+  // }
 
   // This guard shouldn't be needed, at all, due to the CEI pattern
   // This function is too critical to not warrant the extra gas though
-  function withdraw(address account) external nonReentrant {
-    uint256 balance = _balances[account];
-    _balances[account] = 0;
-    (bool success,) = account.call{value: balance}("");
-    require(success);
-  }
+  // function withdraw(address account) external nonReentrant {
+  //   uint256 balance = _balances[account];
+  //   _balances[account] = 0;
+  //   (bool success,) = account.call{value: balance}("");
+  //   require(success);
+  // }
 
   function getListing(uint256 id) external view returns (Listing memory) {
     return _listings[id];
@@ -267,29 +273,30 @@ contract Bidify is ReentrancyGuard, Ownable, IERC165, ERC1155Holder {
       // 4% fee
       uint256 originalFees = listing.price / 25;
       uint256 ownerFees = originalFees;
-
+      ownerFees /= 2;
+      universalTransfer(listing.currency, BIDIFY_PLATFORM, ownerFees);
       // Half goes to the referrer, if one exists
-      if (listing.referrer != address(0)) {
-        ownerFees /= 2;
-        uint256 referrerFees = ownerFees;
-        // If a marketplace (the referrer for the bidder, versus the seller) exists
-        // They get half the referral fees
-        if (listing.marketplace != address(0)) {
-          referrerFees /= 2;
-          universalTransfer(listing.currency, listing.marketplace, referrerFees);
-        }
-        universalTransfer(listing.currency, listing.referrer, referrerFees);
-      } else {
-        // Handle no referrer yet marketplace
-        if (listing.marketplace != address(0)) {
-          ownerFees /= 2;
-          // Misuse of ownerFees variable, yet avoids the referrerFees variable definition
-          universalTransfer(listing.currency, listing.marketplace, ownerFees);
-        }
-      }
+      // if (listing.referrer != address(0)) {
+      //   ownerFees /= 2;
+      //   uint256 referrerFees = ownerFees;
+      //   // If a marketplace (the referrer for the bidder, versus the seller) exists
+      //   // They get half the referral fees
+      //   if (listing.marketplace != address(0)) {
+      //     referrerFees /= 2;
+      //     universalTransfer(listing.currency, listing.marketplace, referrerFees);
+      //   }
+      //   universalTransfer(listing.currency, listing.referrer, referrerFees);
+      // } else {
+      //   // Handle no referrer yet marketplace
+      //   if (listing.marketplace != address(0)) {
+      //     ownerFees /= 2;
+      //     // Misuse of ownerFees variable, yet avoids the referrerFees variable definition
+      //     universalTransfer(listing.currency, listing.marketplace, ownerFees);
+      //   }
+      // }
 
       // Rest of the fees goes to the platform's creators
-      universalTransfer(listing.currency, owner(), ownerFees);
+      universalTransfer(listing.currency, DAO, ownerFees);
 
       // Pay out the listing (post fees)
       universalTransfer(listing.currency, listing.creator, listing.price - originalFees);
